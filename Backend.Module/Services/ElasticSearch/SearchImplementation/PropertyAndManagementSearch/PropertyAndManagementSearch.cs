@@ -48,42 +48,83 @@ namespace Backend.Module.Services.ElasticSearch.SearchImplementation
 
         private ISearchResponse<PropertyContainer> SearchingProperties(string term, int size, int page, Dictionary<string, object> arguments)
         {
-            List<Func<QueryContainerDescriptor<PropertyContainer>, QueryContainer>> propertyMusts = new List<Func<QueryContainerDescriptor<PropertyContainer>, QueryContainer>>();
-            propertyMusts.Add(x => x.Match(m =>
-                                        m.Field("property.name").Query(term).Fuzziness(Fuzziness.EditDistance(2))) || 
-                                    x.Match(m => 
-                                        m.Field("property.formerName").Query(term).Fuzziness(Fuzziness.EditDistance(2))));
-
-            if (arguments.ContainsKey("market") && arguments["market"] != null)
-            {
-                propertyMusts.Add(x => x.Term(t => t.property.market, arguments["market"].ToString().ToLower()));
-            }
 
             var properties = _elasticService.Search<PropertyContainer>(x =>
                 x.Index(Indices.Index("properties"))
                 .Size(size)
                 .From(page)
-                .Query(q => q.Bool(b => b.Must(propertyMusts))));
+                .Query(q =>
+                    q.Bool(
+                        b1 => b1.Should(
+                                s1 => s1.Match(m1 => m1.Field("property.name").Query(term).Fuzziness(Fuzziness.EditDistance(2)).Operator(Operator.And).Analyzer("stop")),
+                                s1 => s1.Match(m1 => m1.Field("property.formerName").Query(term).Fuzziness(Fuzziness.EditDistance(2)).Operator(Operator.And).Analyzer("stop"))
+                            ).Must(
+                                s1 =>
+                                {
+                                    if (arguments["market"] != null && arguments["market"].ToString().Trim() != string.Empty)
+                                    {
+                                        string[] markets = arguments["market"].ToString().Trim().Split(",");
+                                        List<QueryContainer> queries = new List<QueryContainer>();
+                                        foreach (string market in markets)
+                                        {
+                                            queries.Add(new MatchQuery()
+                                            {
+                                                Field = "property.market",
+                                                Query = market
+                                            });
+                                        }
+                                        return new QueryContainerDescriptor<PropertyContainer>().Bool(
+                                                d => d.Should(queries.ToArray()));
+                                    }
+                                    else
+                                    {
+                                        return null;
+                                    }
+                                })
+                            )
+                        )
+                );
+                 
             return properties;
         } 
 
         private ISearchResponse<ManagementContainer> SearchingManagement(string term, int size, int page, Dictionary<string, object> arguments)
         {
-            List<Func<QueryContainerDescriptor<ManagementContainer>, QueryContainer>> managementMusts = new List<Func<QueryContainerDescriptor<ManagementContainer>, QueryContainer>>();
-            managementMusts.Add(x => x.Match(m =>
-                                m.Field("mgmt.name").Query(term)));
-
-            if (arguments.ContainsKey("market") && arguments["market"] != null)
-            {
-                managementMusts.Add(x => x.Term(t => t.mgmt.market, arguments["market"].ToString().ToLower()));
-            }
-
-
             var managements = _elasticService.Search<ManagementContainer>(x =>
-                x.Index(Indices.Index("managements"))
-                .Size(size)
-                .From(page)
-                .Query(q => q.Bool(b => b.Must(managementMusts))));
+                 x.Index(Indices.Index("managements"))
+                 .Size(size)
+                 .From(page)
+                 .Query(q =>
+                     q.Bool(
+                         b1 => b1.Should(
+                                 s1 => s1.Match(m1 => m1.Field("mgmt.name").Query(term).Fuzziness(Fuzziness.EditDistance(2)).Operator(Operator.And).Analyzer("stop"))
+                             ).Must(
+                                 s1 =>
+                                 {
+                                     if (arguments["market"] != null && arguments["market"].ToString().Trim() != string.Empty)
+                                     {
+                                         string[] markets = arguments["market"].ToString().Trim().Split(",");
+                                         List<QueryContainer> queries = new List<QueryContainer>();
+                                         foreach (string market in markets)
+                                         {
+                                             queries.Add(new MatchQuery()
+                                             {
+                                                 Field = "mgmt.market",
+                                                 Query = market
+                                             });
+                                         }
+                                         return new QueryContainerDescriptor<ManagementContainer>().Bool(
+                                                 d => d.Should(queries.ToArray()));
+                                     }
+                                     else
+                                     {
+                                         return null;
+                                     }
+                                 })
+                             )
+                         )
+                 );
+
             return managements;
         }
 

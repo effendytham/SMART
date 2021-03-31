@@ -16,13 +16,19 @@ namespace Backend.Module.Services
             _appSettings = _appSettingsProvider.GetSettings();
         }
 
+        public ElasticClient GetClient()
+        {
+            var settings = new ConnectionSettings(new Uri(_appSettings.ElasticSearch.Host));
+            var client = new ElasticClient(settings);
+            return client;
+        }
+
         public ServiceResponse IndexingDocuments<T>(string index, List<T> objects) where T : class
         {
             ServiceResponse response = new ServiceResponse();
             try
             {
-                var settings = new ConnectionSettings(new Uri(_appSettings.ElasticSearch.Host));
-                var client = new ElasticClient(settings);
+                var client = GetClient();
                 var bulkResponse = client.Bulk(b => b
                     .Index(index)
                     .IndexMany(objects));
@@ -45,8 +51,7 @@ namespace Backend.Module.Services
             ServiceResponse response = new ServiceResponse();
             try
             {
-                var settings = new ConnectionSettings(new Uri(_appSettings.ElasticSearch.Host));
-                var client = new ElasticClient(settings);
+                var client = GetClient();
                 var indexResponse = client.Index<T>(obj, i => i.Index(index));
                 response.Success = indexResponse.IsValid;
                 response.Errors.Add("Document encounter an error");
@@ -63,8 +68,7 @@ namespace Backend.Module.Services
         {
             try
             {
-                var settings = new ConnectionSettings(new Uri(_appSettings.ElasticSearch.Host));
-                var client = new ElasticClient(settings);
+                var client = GetClient();
                 return client.Search<T>(selector);
             }
             catch (Exception ex)

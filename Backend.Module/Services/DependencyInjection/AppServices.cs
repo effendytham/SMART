@@ -12,6 +12,7 @@ namespace Backend.Module.Services
             services.AddTransient(typeof(IAppSettingsProvider), appSettingsProviderService);
             services.AddTransient<IElasticSearch, PropertyAndManagementSearch>();
             services.AddTransient<IElasticService, ElasticService>();
+            services.AddTransient<IElasticSeed, ElasticSeed>();
             return services;
         }
     }
